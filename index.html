@@ -877,25 +877,144 @@ function switchNetwork(net) {
 // ===========================
 // 価格取得（テストネットはシミュレーション）
 // ===========================
+// ===========================
+// Uniswap V3 Sepolia設定
+// ===========================
+const UNISWAP_CONFIG = {
+  // Uniswap V3 SwapRouter on Sepolia
+  routerAddress: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48',
+  // WETH on Sepolia
+  wethAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+  // USDC on Sepolia
+  usdcAddress: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+  // Uniswap V3 Quoter on Sepolia
+  quoterAddress: '0xEd1f6473345F45b75833fd55D5ADbEb76d79bFa',
+  fee: 3000, // 0.3%
+};
+
+// Uniswap Quoter ABI（価格取得用）
+const QUOTER_ABI = [
+  'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)'
+];
+
+// SwapRouter ABI（スワップ実行用）
+const ROUTER_ABI = [
+  'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)'
+];
+
+// ERC20 ABI（approve用）
+const ERC20_ABI = [
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function balanceOf(address account) external view returns (uint256)'
+];
+
+async function getProvider() {
+  if (!window.ethereum) throw new Error('MetaMask未接続');
+  // ethers.jsをCDNから動的ロード
+  if (!window.ethers) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  return provider;
+}
+
 async function fetchPrice() {
-  if (state.network === 'testnet') {
-    // テストネット: リアルな価格変動シミュレーション
-    const change = (Math.random() - 0.5) * 3.0; // 変動幅を大きく
+  // CoinGecko APIで実際のETH価格取得（テストネット・メインネット共通）
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const data = await res.json();
+    const price = data.ethereum.usd;
+    state.simulatedPrice = price;
+    return price;
+  } catch {
+    // フォールバック: 前回価格に微小変動
+    const change = (Math.random() - 0.5) * 0.3;
     state.simulatedPrice *= (1 + change / 100);
-    state.simulatedPrice = Math.max(2000, Math.min(6000, state.simulatedPrice));
     return state.simulatedPrice;
-  } else {
-    // メインネット: CoinGecko API（本番）
-    try {
-      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-      const data = await res.json();
-      return data.ethereum.usd;
-    } catch {
-      // フォールバック
-      const change = (Math.random() - 0.5) * 0.5;
-      state.simulatedPrice *= (1 + change / 100);
-      return state.simulatedPrice;
+  }
+}
+
+// ===========================
+// 本物のUniswapスワップ（Sepolia）
+// ===========================
+async function executeSwap(type, amountEth) {
+  try {
+    addLog('info', '🦊 MetaMask署名リクエスト中...');
+    const provider = await getProvider();
+    const signer = await provider.getSigner();
+    const userAddress = await signer.getAddress();
+    const deadline = Math.floor(Date.now() / 1000) + 300; // 5分
+
+    if (type === 'BUY') {
+      // ETH → USDC スワップ
+      const amountIn = ethers.parseEther(amountEth.toString());
+      const router = new ethers.Contract(UNISWAP_CONFIG.routerAddress, ROUTER_ABI, signer);
+
+      const params = {
+        tokenIn: UNISWAP_CONFIG.wethAddress,
+        tokenOut: UNISWAP_CONFIG.usdcAddress,
+        fee: UNISWAP_CONFIG.fee,
+        recipient: userAddress,
+        deadline: deadline,
+        amountIn: amountIn,
+        amountOutMinimum: 0n,
+        sqrtPriceLimitX96: 0n,
+      };
+
+      addLog('info', `📝 ${amountEth} ETH → USDC スワップ送信中...`);
+      const tx = await router.exactInputSingle(params, { value: amountIn });
+      addLog('info', `⏳ TX送信完了、確認待ち...`);
+      const receipt = await tx.wait();
+      const url = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
+      addLog('info', `✅ TX確認: <a href="${url}" target="_blank" style="color:var(--accent);text-decoration:underline">${receipt.hash.slice(0,14)}...</a>`);
+      return receipt.hash;
+
+    } else {
+      // USDC → ETH スワップ
+      const usdcAmount = ethers.parseUnits((amountEth * state.lastPrice * 0.98).toFixed(2), 6);
+      const usdc = new ethers.Contract(UNISWAP_CONFIG.usdcAddress, ERC20_ABI, signer);
+      const router = new ethers.Contract(UNISWAP_CONFIG.routerAddress, ROUTER_ABI, signer);
+
+      // approve確認
+      const allowance = await usdc.allowance(userAddress, UNISWAP_CONFIG.routerAddress);
+      if (allowance < usdcAmount) {
+        addLog('info', '🔓 USDC approve中...');
+        const approveTx = await usdc.approve(UNISWAP_CONFIG.routerAddress, ethers.MaxUint256);
+        await approveTx.wait();
+        addLog('info', '✅ approve完了');
+      }
+
+      const params = {
+        tokenIn: UNISWAP_CONFIG.usdcAddress,
+        tokenOut: UNISWAP_CONFIG.wethAddress,
+        fee: UNISWAP_CONFIG.fee,
+        recipient: userAddress,
+        deadline: deadline,
+        amountIn: usdcAmount,
+        amountOutMinimum: 0n,
+        sqrtPriceLimitX96: 0n,
+      };
+
+      addLog('info', `📝 USDC → ETH スワップ送信中...`);
+      const tx = await router.exactInputSingle(params);
+      const receipt = await tx.wait();
+      const url = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
+      addLog('info', `✅ TX確認: <a href="${url}" target="_blank" style="color:var(--accent);text-decoration:underline">${receipt.hash.slice(0,14)}...</a>`);
+      return receipt.hash;
     }
+  } catch(e) {
+    if (e.code === 4001) {
+      addLog('warn', '🚫 MetaMask署名キャンセル');
+    } else {
+      addLog('warn', `⚠️ TX失敗: ${e.message?.slice(0,60) || 'エラー'}`);
+    }
+    return null;
   }
 }
 
@@ -988,15 +1107,8 @@ async function botTick() {
     document.getElementById('position').textContent = `LONG ${amount}ETH`;
     document.getElementById('position').style.color = 'var(--green)';
 
-    // テストネット: MetaMask署名シミュレーション
-    if (state.network === 'testnet') {
-      addLog('info', '📝 トランザクション送信中... (Sepolia)');
-      setTimeout(() => {
-      const txHash = '0x' + Math.random().toString(16).slice(2,10) + Math.random().toString(16).slice(2,18);
-      const url = 'https://sepolia.etherscan.io/tx/' + txHash;
-      addLog('info', `✓ TX: <a href="${url}" target="_blank" style="color:var(--accent);text-decoration:underline">${txHash.slice(0,14)}...</a>`);
-    }, 1500);
-    }
+    // 本物のUniswapスワップ実行
+    executeSwap('BUY', amount);
 
   } else if (signal === 'SELL' && state.position) {
     // 売りクローズ
@@ -1007,6 +1119,8 @@ async function botTick() {
     state.trades.push({ type: 'sell', price, priceIndex: state.prices.length - 1 });
 
     addLog('sell', `SELL ${state.position.amount} ETH @ $${price.toFixed(2)} — PnL: ${pnl > 0 ? '+' : ''}$${pnl.toFixed(4)}`);
+    // 本物のUniswapスワップ実行
+    executeSwap('SELL', state.position.amount);
     state.position = null;
     document.getElementById('position').textContent = 'なし';
     document.getElementById('position').style.color = 'var(--text)';
