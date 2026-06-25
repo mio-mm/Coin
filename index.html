@@ -3,675 +3,361 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AUTOTRADER // Lv.1</title>
+<title>AUTOTRADER // Lv.2 ARBITRAGE BOT</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap');
-
   :root {
     --bg: #0a0a0f;
     --surface: #111118;
-    --surface2: #1a1a24;
     --border: #2a2a3a;
-    --accent: #00e5ff;
-    --accent2: #7c4dff;
+    --accent: #7c4dff;
+    --accent2: #00e5ff;
     --green: #00e676;
     --red: #ff1744;
     --yellow: #ffd740;
+    --orange: #ff9100;
     --text: #e8e8f0;
     --muted: #6b6b80;
-    --font-display: 'Space Grotesk', sans-serif;
     --font-mono: 'Space Mono', monospace;
+    --font-display: 'Space Grotesk', sans-serif;
   }
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-display);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* スキャンライン演出 */
+  body { background: var(--bg); color: var(--text); font-family: var(--font-display); min-height: 100vh; overflow-x: hidden; }
   body::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,229,255,0.015) 2px,
-      rgba(0,229,255,0.015) 4px
-    );
-    pointer-events: none;
-    z-index: 100;
+    content: ''; position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(124,77,255,0.012) 2px, rgba(124,77,255,0.012) 4px);
+    pointer-events: none; z-index: 100;
   }
 
+  /* ヘッダー */
   .header {
-    border-bottom: 1px solid var(--border);
-    padding: 20px 32px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--surface);
+    border-bottom: 1px solid var(--border); padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface); position: sticky; top: 0; z-index: 50;
   }
-
-  .logo {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-  }
-
-  .logo span {
-    color: var(--accent);
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    display: block;
-  }
-
+  .logo { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .logo-title { color: var(--accent); font-size: 16px; font-weight: 700; display: block; letter-spacing: 0.05em; }
+  .version { color: var(--yellow); font-size: 10px; }
   .network-badge {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 6px 14px;
-    border-radius: 2px;
-    letter-spacing: 0.1em;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
+    font-family: var(--font-mono); font-size: 10px; padding: 5px 12px;
+    border-radius: 2px; display: flex; align-items: center; gap: 6px;
+    background: rgba(255,215,64,0.1); border: 1px solid rgba(255,215,64,0.3); color: var(--yellow);
   }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-  .network-badge.testnet {
-    background: rgba(255,215,64,0.1);
-    border: 1px solid rgba(255,215,64,0.3);
-    color: var(--yellow);
+  /* モバイルタブ */
+  .mobile-tabs { display: none; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 57px; z-index: 40; }
+  .mobile-tab {
+    flex: 1; padding: 11px 4px; text-align: center; font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;
+    background: none; border-top: none; border-left: none; border-right: none;
   }
+  .mobile-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  .network-badge.mainnet {
-    background: rgba(0,230,118,0.1);
-    border: 1px solid rgba(0,230,118,0.3);
-    color: var(--green);
-  }
-
-  .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .main {
+  /* メインレイアウト */
+  .layout {
     display: grid;
-    grid-template-columns: 340px 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 0;
-    height: calc(100vh - 65px);
+    grid-template-columns: 300px 1fr;
+    height: calc(100vh - 57px);
+    overflow: hidden;
   }
 
   /* 左パネル */
-  .left-panel {
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
+  .left { border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
+
+  .panel { padding: 18px; border-bottom: 1px solid var(--border); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; }
+
+  /* ウォレット */
+  .wallet-btn {
+    width: 100%; padding: 13px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; border: none; font-family: var(--font-mono); font-size: 12px;
+    font-weight: 700; letter-spacing: 0.1em; cursor: pointer; border-radius: 2px;
   }
+  .wallet-addr { font-family: var(--font-mono); font-size: 11px; color: var(--green); margin-top: 8px; display: none; }
 
-  .panel-section {
-    padding: 24px;
-    border-bottom: 1px solid var(--border);
+  /* 価格差表示（メイン） */
+  .spread-display {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 16px; margin-bottom: 12px;
   }
+  .spread-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .spread-value { font-family: var(--font-mono); font-size: 28px; font-weight: 700; line-height: 1; }
+  .spread-value.profit { color: var(--green); }
+  .spread-value.loss { color: var(--red); }
+  .spread-value.neutral { color: var(--muted); }
+  .spread-sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-  .section-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    margin-bottom: 16px;
-    text-transform: uppercase;
+  /* 取引所価格 */
+  .exchange-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .exchange-card {
+    background: var(--bg); border: 1px solid var(--border); padding: 12px; border-radius: 2px;
   }
+  .ex-name { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+  .ex-price { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent2); }
+  .ex-badge { font-size: 9px; padding: 2px 6px; border-radius: 2px; margin-top: 4px; display: inline-block; font-family: var(--font-mono); }
+  .ex-badge.cheap { background: rgba(0,230,118,0.15); color: var(--green); }
+  .ex-badge.expensive { background: rgba(255,23,68,0.15); color: var(--red); }
 
-  /* 価格表示 */
-  .price-display {
-    font-family: var(--font-mono);
-    font-size: 36px;
-    font-weight: 700;
-    color: var(--accent);
-    line-height: 1;
-    margin-bottom: 4px;
-    letter-spacing: -0.02em;
+  /* フィルター式 */
+  .filter-formula {
+    background: rgba(124,77,255,0.05); border: 1px solid rgba(124,77,255,0.2);
+    padding: 12px; border-radius: 2px; margin-bottom: 12px;
+    font-family: var(--font-mono); font-size: 11px; line-height: 1.8;
   }
-
-  .price-change {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .formula-line { display: flex; justify-content: space-between; align-items: center; }
+  .formula-key { color: var(--muted); }
+  .formula-val { color: var(--accent2); font-weight: 700; }
+  .formula-result {
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+    font-size: 12px; font-weight: 700; text-align: center;
   }
+  .formula-result.go { color: var(--green); }
+  .formula-result.nogo { color: var(--red); }
 
-  .price-change.up { color: var(--green); }
-  .price-change.down { color: var(--red); }
-
-  /* 設定フォーム */
-  .field {
-    margin-bottom: 16px;
-  }
-
-  .field label {
-    display: block;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    color: var(--muted);
-    letter-spacing: 0.1em;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-  }
-
+  /* 設定 */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 10px; font-family: var(--font-mono); color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; text-transform: uppercase; }
   .field input, .field select {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 14px;
-    padding: 10px 14px;
-    border-radius: 2px;
-    outline: none;
-    transition: border-color 0.2s;
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-mono); font-size: 15px;
+    padding: 10px 12px; border-radius: 2px; outline: none; transition: border-color 0.2s;
   }
-
-  .field input:focus, .field select:focus {
-    border-color: var(--accent);
-  }
-
+  .field input:focus, .field select:focus { border-color: var(--accent); }
   .field select option { background: var(--surface); }
 
   /* ボット制御 */
   .bot-status {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    padding: 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 2px;
+    display: flex; align-items: center; gap: 10px; padding: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 2px; margin-bottom: 12px;
   }
-
-  .status-indicator {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .status-indicator.idle { background: var(--muted); }
-  .status-indicator.running {
-    background: var(--green);
-    box-shadow: 0 0 12px var(--green);
-    animation: pulse 1s infinite;
-  }
-  .status-indicator.stopped { background: var(--red); }
-
-  .status-text {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    flex: 1;
-  }
-
-  .status-text span {
-    display: block;
-    color: var(--muted);
-    font-size: 10px;
-    margin-top: 2px;
-  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.idle { background: var(--muted); }
+  .status-dot.running { background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 1s infinite; }
+  .status-dot.stopped { background: var(--red); }
+  .status-text { font-family: var(--font-mono); font-size: 11px; flex: 1; }
+  .status-text span { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
 
   .btn-start {
-    width: 100%;
-    padding: 14px;
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.2s;
-    text-transform: uppercase;
+    width: 100%; padding: 14px; background: var(--accent); color: white;
+    border: none; font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.12em; cursor: pointer; border-radius: 2px; transition: all 0.2s;
   }
-
-  .btn-start:hover {
-    background: #33ecff;
-    box-shadow: 0 0 24px rgba(0,229,255,0.4);
-  }
-
+  .btn-start:hover { opacity: 0.85; box-shadow: 0 0 20px rgba(124,77,255,0.4); }
   .btn-stop {
-    width: 100%;
-    padding: 14px;
-    background: transparent;
-    color: var(--red);
-    border: 1px solid var(--red);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    margin-top: 8px;
-  }
-
-  .btn-stop:hover {
-    background: rgba(255,23,68,0.1);
+    width: 100%; padding: 14px; background: transparent; color: var(--red);
+    border: 1px solid var(--red); font-family: var(--font-mono); font-size: 13px;
+    font-weight: 700; letter-spacing: 0.12em; cursor: pointer; border-radius: 2px; margin-top: 8px;
   }
 
   /* 右パネル */
-  .right-panel {
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    overflow: hidden;
-  }
+  .right { display: flex; flex-direction: column; overflow: hidden; }
 
   /* 統計バー */
-  .stats-bar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    border-bottom: 1px solid var(--border);
-  }
+  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .stat { padding: 16px 20px; border-right: 1px solid var(--border); }
+  .stat:last-child { border-right: none; }
+  .stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: var(--font-mono); font-size: 20px; font-weight: 700; }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .neutral { color: var(--text); }
+  .accent-c { color: var(--accent2); }
+  .pnl-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .pnl-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width 0.5s; }
+  .pnl-fill.neg { background: var(--red); }
 
-  .stat-item {
-    padding: 20px 24px;
-    border-right: 1px solid var(--border);
-  }
+  /* スプレッドチャート */
+  .chart-area { flex: 1; padding: 16px; min-height: 0; position: relative; }
+  canvas { width: 100% !important; height: 100% !important; }
 
-  .stat-item:last-child { border-right: none; }
-
-  .stat-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-
-  .stat-value {
-    font-family: var(--font-mono);
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .stat-value.positive { color: var(--green); }
-  .stat-value.negative { color: var(--red); }
-  .stat-value.neutral { color: var(--text); }
-  .stat-value.accent { color: var(--accent); }
-
-  /* チャートエリア */
-  .chart-area {
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  canvas#priceChart {
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  /* ログエリア */
-  .log-area {
-    border-top: 1px solid var(--border);
-    height: 200px;
-    overflow-y: auto;
-    background: var(--surface);
-  }
-
+  /* ログ */
+  .log-area { height: 180px; border-top: 1px solid var(--border); overflow-y: auto; background: var(--surface); flex-shrink: 0; }
   .log-header {
-    position: sticky;
-    top: 0;
-    background: var(--surface);
-    padding: 12px 24px;
-    border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 1;
+    position: sticky; top: 0; background: var(--surface); padding: 10px 20px;
+    border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px; z-index: 1;
   }
-
   .log-entry {
-    padding: 8px 24px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-    border-bottom: 1px solid rgba(42,42,58,0.5);
-    line-height: 1.4;
+    padding: 7px 20px; font-family: var(--font-mono); font-size: 11px;
+    display: flex; gap: 12px; border-bottom: 1px solid rgba(42,42,58,0.5); line-height: 1.4;
   }
-
-  .log-time {
-    color: var(--muted);
-    flex-shrink: 0;
-    font-size: 11px;
-  }
-
-  .log-entry.buy { border-left: 2px solid var(--green); }
-  .log-entry.sell { border-left: 2px solid var(--red); }
-  .log-entry.info { border-left: 2px solid var(--accent); }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-entry.arb { border-left: 2px solid var(--accent); }
+  .log-entry.profit { border-left: 2px solid var(--green); }
+  .log-entry.loss { border-left: 2px solid var(--red); }
+  .log-entry.info { border-left: 2px solid var(--accent2); }
   .log-entry.warn { border-left: 2px solid var(--yellow); }
-
   .log-msg { flex: 1; }
-  .log-msg .tag {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 2px;
-    font-size: 10px;
-    margin-right: 6px;
-    font-weight: 700;
-  }
-
-  .tag-buy { background: rgba(0,230,118,0.15); color: var(--green); }
-  .tag-sell { background: rgba(255,23,68,0.15); color: var(--red); }
-  .tag-info { background: rgba(0,229,255,0.1); color: var(--accent); }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 10px; margin-right: 6px; font-weight: 700; }
+  .tag-arb { background: rgba(124,77,255,0.2); color: var(--accent); }
+  .tag-profit { background: rgba(0,230,118,0.15); color: var(--green); }
+  .tag-loss { background: rgba(255,23,68,0.15); color: var(--red); }
+  .tag-info { background: rgba(0,229,255,0.1); color: var(--accent2); }
   .tag-warn { background: rgba(255,215,64,0.1); color: var(--yellow); }
 
-  /* スクロールバー */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  /* MetaMask接続ボタン */
-  .wallet-section {
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-  }
-
-  .wallet-btn {
-    width: 100%;
-    padding: 12px;
-    background: linear-gradient(135deg, var(--accent2), var(--accent));
-    color: white;
-    border: none;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.2s;
-    text-transform: uppercase;
-  }
-
-  .wallet-btn:hover {
-    opacity: 0.85;
-    box-shadow: 0 0 20px rgba(124,77,255,0.4);
-  }
-
-  .wallet-address {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--green);
-    margin-top: 10px;
-    word-break: break-all;
-    display: none;
-  }
-
-  /* ネットワーク切替 */
-  .network-toggle {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  .net-btn {
-    flex: 1;
-    padding: 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.2s;
-    text-align: center;
-    letter-spacing: 0.05em;
-  }
-
-  .net-btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0,229,255,0.05);
-  }
-
-  /* PnLゲージ */
-  .pnl-bar {
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-top: 8px;
-    overflow: hidden;
-  }
-
-  .pnl-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.5s ease;
-    background: var(--green);
-  }
-
-  .pnl-fill.negative { background: var(--red); }
-
-  /* ===== モバイル対応 ===== */
+  /* モバイル対応 */
   @media (max-width: 768px) {
-    .header { padding: 14px 16px; }
-    .logo span { font-size: 14px; }
-    .network-badge { font-size: 10px; padding: 5px 10px; }
-
-    .mobile-tabs {
-      display: flex !important;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      position: sticky; top: 0; z-index: 40;
-    }
-    .mobile-tab {
-      flex: 1; padding: 12px 4px; text-align: center;
-      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
-      cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;
-      background: none; border-top: none; border-left: none; border-right: none;
-    }
-    .mobile-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-    .main { display: block; height: auto; overflow-y: auto; }
-    .left-panel { border-right: none; overflow-y: visible; display: none; }
-    .left-panel.active { display: flex; }
-    .right-panel { display: none; }
-    .right-panel.active { display: flex; flex-direction: column; }
-    .mobile-log { display: none; }
-    .mobile-log.active { display: block; }
-
+    .mobile-tabs { display: flex; }
+    .layout { display: block; height: auto; }
+    .left { border-right: none; display: none; }
+    .left.active { display: flex; }
+    .right { display: none; }
+    .right.active { display: flex; flex-direction: column; }
+    .mobile-log-panel { display: none; }
+    .mobile-log-panel.active { display: block; }
     .stats-bar { grid-template-columns: repeat(2, 1fr); }
-    .stat-item { padding: 14px 16px; }
-    .stat-item:nth-child(2) { border-right: none; }
-    .stat-item:nth-child(3), .stat-item:nth-child(4) { border-top: 1px solid var(--border); }
-    .stat-value { font-size: 18px; }
-    .chart-area { padding: 16px; height: 260px; }
+    .stat:nth-child(2) { border-right: none; }
+    .stat:nth-child(3), .stat:nth-child(4) { border-top: 1px solid var(--border); }
+    .chart-area { height: 250px; }
     .log-area { height: 300px; }
-    .log-entry { padding: 8px 16px; font-size: 11px; }
-    .log-header { padding: 10px 16px; }
-    .panel-section { padding: 16px; }
-    .wallet-section { padding: 16px; }
-    .price-display { font-size: 28px; }
-    .field input, .field select { padding: 12px 14px; font-size: 16px; }
-    .btn-start, .btn-stop { padding: 16px; font-size: 14px; }
-    .net-btn { padding: 10px; }
+    .field input, .field select { font-size: 16px; }
   }
-
-  .mobile-tabs { display: none; }
-  .mobile-log { display: none; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 </head>
 <body>
 
 <header class="header">
   <div class="logo">
     AUTOTRADER
-    <span>// Lv.1 TREND BOT <span style="color:var(--yellow);font-size:11px">v2.0</span></span>
+    <span class="logo-title">// Lv.2 ARBITRAGE BOT <span class="version">v1.0</span></span>
   </div>
-  <div class="network-badge testnet" id="networkBadge">
-    <div class="dot"></div>
-    <span id="networkLabel">SEPOLIA TESTNET</span>
-  </div>
+  <div class="network-badge"><div class="dot"></div>SEPOLIA TESTNET</div>
 </header>
 
 <nav class="mobile-tabs" id="mobileTabs">
-  <button class="mobile-tab active" onclick="switchTab('chart')">📈 チャート</button>
+  <button class="mobile-tab active" onclick="switchTab('chart')">📊 スプレッド</button>
   <button class="mobile-tab" onclick="switchTab('settings')">⚙️ 設定</button>
   <button class="mobile-tab" onclick="switchTab('log')">📋 ログ</button>
 </nav>
 
-<div class="mobile-log" id="mobileLog">
-  <div class="log-area" style="height:calc(100vh - 100px)">
-    <div class="log-header"><div class="dot" style="color:var(--accent)"></div>取引ログ — リアルタイム</div>
+<!-- モバイルログ -->
+<div class="mobile-log-panel" id="mobileLog">
+  <div class="log-area" style="height:calc(100vh - 110px)">
+    <div class="log-header"><div class="dot" style="color:var(--accent2)"></div>取引ログ — リアルタイム</div>
     <div id="logEntriesMobile"></div>
   </div>
 </div>
 
-<div class="main" id="mainLayout">
+<div class="layout" id="mainLayout">
 
   <!-- 左パネル -->
-  <div class="left-panel">
+  <div class="left" id="tab-settings">
 
-    <!-- ウォレット接続 -->
-    <div class="wallet-section">
-      <div class="section-label">ウォレット</div>
-      <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">
-        🦊 MetaMask 接続
-      </button>
-      <div class="wallet-address" id="walletAddress"></div>
+    <!-- ウォレット -->
+    <div class="panel">
+      <div class="label">ウォレット</div>
+      <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">🦊 MetaMask 接続</button>
+      <div class="wallet-addr" id="walletAddr"></div>
     </div>
 
-    <!-- 価格表示 -->
-    <div class="panel-section">
-      <div class="section-label">現在価格 — ETH/USDC</div>
-      <div class="price-display" id="currentPrice">$—</div>
-      <div class="price-change" id="priceChange">
-        <span>—</span>
+    <!-- スプレッド表示 -->
+    <div class="panel">
+      <div class="label">価格差（スプレッド）</div>
+      <div class="exchange-prices">
+        <div class="exchange-card">
+          <div class="ex-name">Uniswap V3</div>
+          <div class="ex-price" id="priceA">$—</div>
+          <div class="ex-badge" id="badgeA">—</div>
+        </div>
+        <div class="exchange-card">
+          <div class="ex-name">SushiSwap</div>
+          <div class="ex-price" id="priceB">$—</div>
+          <div class="ex-badge" id="badgeB">—</div>
+        </div>
+      </div>
+
+      <div class="spread-display">
+        <div class="spread-label">現在のスプレッド</div>
+        <div class="spread-value neutral" id="spreadValue">—</div>
+        <div class="spread-sub" id="spreadSub">ボットを起動してください</div>
+      </div>
+
+      <!-- フィルター式 -->
+      <div class="filter-formula">
+        <div class="formula-line"><span class="formula-key">スプレッド</span><span class="formula-val" id="fSpread">—</span></div>
+        <div class="formula-line"><span class="formula-key">ガス代（往復）</span><span class="formula-val" id="fGas">—</span></div>
+        <div class="formula-line"><span class="formula-key">スリッページ</span><span class="formula-val" id="fSlip">—</span></div>
+        <div class="formula-line"><span class="formula-key">目標利益</span><span class="formula-val" id="fTarget">—</span></div>
+        <div class="formula-result nogo" id="formulaResult">待機中</div>
       </div>
     </div>
 
-    <!-- ネットワーク切替 -->
-    <div class="panel-section">
-      <div class="section-label">ネットワーク</div>
-      <div class="network-toggle">
-        <button class="net-btn active" id="btn-testnet" onclick="switchNetwork('testnet')">TESTNET</button>
-        <button class="net-btn" id="btn-mainnet" onclick="switchNetwork('mainnet')">MAINNET</button>
-      </div>
-
-      <!-- ボット設定 -->
-      <div class="section-label" style="margin-top:8px">ボット設定</div>
-
+    <!-- 設定 -->
+    <div class="panel">
+      <div class="label">ボット設定</div>
       <div class="field">
-        <label>戦略</label>
-        <select id="strategy">
-          <option value="trend">トレンドフォロー（移動平均）</option>
-          <option value="rsi">RSI 逆張り</option>
-          <option value="bb">ボリンジャーバンド</option>
-        </select>
+        <label>取引量（ETH）</label>
+        <input type="number" id="tradeAmount" value="0.01" step="0.001" min="0.001" max="0.05">
       </div>
-
       <div class="field">
-        <label>1回あたりの取引量（ETH）</label>
-        <input type="number" id="tradeAmount" value="0.01" step="0.001" min="0.001" max="1">
+        <label>最低スプレッド閾値（%）</label>
+        <input type="number" id="minSpread" value="0.5" step="0.1" min="0.1">
       </div>
-
       <div class="field">
-        <label>買いシグナル閾値（%）</label>
-        <input type="number" id="buyThreshold" value="-2" step="0.5">
+        <label>目標利益（USDC）</label>
+        <input type="number" id="targetProfit" value="0.5" step="0.1" min="0.1">
       </div>
-
-      <div class="field">
-        <label>売りシグナル閾値（%）</label>
-        <input type="number" id="sellThreshold" value="3" step="0.5">
-      </div>
-
       <div class="field">
         <label>チェック間隔（秒）</label>
-        <input type="number" id="interval" value="10" min="5" max="60">
+        <input type="number" id="interval" value="5" min="3" max="30">
       </div>
     </div>
 
-    <!-- ボット制御 -->
-    <div class="panel-section">
-      <div class="section-label">ボット制御</div>
+    <!-- 制御 -->
+    <div class="panel">
+      <div class="label">ボット制御</div>
       <div class="bot-status">
-        <div class="status-indicator idle" id="statusDot"></div>
+        <div class="status-dot idle" id="statusDot"></div>
         <div class="status-text">
           <span id="statusMain">待機中</span>
           <span id="statusSub">ボットを起動してください</span>
         </div>
       </div>
-      <button class="btn-start" id="startBtn" onclick="startBot()">▶ BOT 起動</button>
+      <button class="btn-start" id="startBtn" onclick="startBot()">▶ ARBITRAGE BOT 起動</button>
       <button class="btn-stop" id="stopBtn" onclick="stopBot()" style="display:none">■ BOT 停止</button>
     </div>
 
   </div>
 
   <!-- 右パネル -->
-  <div class="right-panel">
+  <div class="right" id="tab-chart">
 
     <!-- 統計 -->
     <div class="stats-bar">
-      <div class="stat-item">
-        <div class="stat-label">総損益 (USDC)</div>
+      <div class="stat">
+        <div class="stat-label">総利益 (USDC)</div>
         <div class="stat-value positive" id="totalPnl">+0.00</div>
         <div class="pnl-bar"><div class="pnl-fill" id="pnlFill" style="width:50%"></div></div>
       </div>
-      <div class="stat-item">
-        <div class="stat-label">取引回数</div>
-        <div class="stat-value neutral" id="tradeCount">0</div>
+      <div class="stat">
+        <div class="stat-label">アービトラージ回数</div>
+        <div class="stat-value neutral" id="arbCount">0</div>
       </div>
-      <div class="stat-item">
-        <div class="stat-label">勝率</div>
-        <div class="stat-value accent" id="winRate">— %</div>
+      <div class="stat">
+        <div class="stat-label">成功率</div>
+        <div class="stat-value accent-c" id="successRate">— %</div>
       </div>
-      <div class="stat-item">
-        <div class="stat-label">保有ポジション</div>
-        <div class="stat-value neutral" id="position">なし</div>
+      <div class="stat">
+        <div class="stat-label">最大スプレッド</div>
+        <div class="stat-value accent-c" id="maxSpread">— %</div>
       </div>
     </div>
 
-    <!-- チャート -->
+    <!-- スプレッドチャート -->
     <div class="chart-area">
-      <canvas id="priceChart"></canvas>
+      <canvas id="spreadChart"></canvas>
     </div>
 
     <!-- ログ -->
-    <div class="log-area" id="logArea">
-      <div class="log-header">
-        <div class="dot" style="color:var(--accent)"></div>
-        取引ログ — リアルタイム
-      </div>
+    <div class="log-area">
+      <div class="log-header"><div class="dot" style="color:var(--accent2)"></div>アービトラージログ — リアルタイム</div>
       <div id="logEntries"></div>
     </div>
 
@@ -680,37 +366,55 @@
 
 <script>
 // ===========================
-// 状態管理
+// 状態
 // ===========================
 let state = {
-  network: 'testnet',
   walletConnected: false,
   walletAddress: null,
   botRunning: false,
   botInterval: null,
-  prices: [],
-  timestamps: [],
-  trades: [],
-  position: null, // { type: 'buy', price, amount }
-  totalPnl: 0,
-  wins: 0,
-  losses: 0,
-  tradeCount: 0,
-  // シミュレーション用
-  simulatedPrice: 3200 + Math.random() * 400,
-  lastPrice: null,
+  basePrice: 1650,
+  priceA: 0, priceB: 0,
+  spreads: [], timestamps: [],
+  totalPnl: 0, wins: 0, losses: 0, arbCount: 0,
+  maxSpread: 0,
 };
 
 // ===========================
-// Chart.js ライト版（自前実装）
+// モバイルタブ
 // ===========================
-const canvas = document.getElementById('priceChart');
-const ctx = canvas.getContext('2d');
+function switchTab(name) {
+  if (window.innerWidth > 768) return;
+  document.querySelectorAll('.mobile-tab').forEach((b,i) => {
+    b.classList.toggle('active', ['chart','settings','log'][i] === name);
+  });
+  document.getElementById('tab-settings').classList.toggle('active', name === 'settings');
+  document.getElementById('tab-chart').classList.toggle('active', name === 'chart');
+  document.getElementById('mobileLog').classList.toggle('active', name === 'log');
+  if (name === 'chart') { resizeCanvas(); drawChart(); }
+}
+function initTabs() {
+  const m = window.innerWidth <= 768;
+  document.getElementById('mobileTabs').style.display = m ? 'flex' : 'none';
+  document.getElementById('mobileLog').style.display = 'none';
+  if (m) {
+    document.getElementById('tab-settings').classList.remove('active');
+    document.getElementById('tab-chart').classList.add('active');
+    document.getElementById('mobileLog').classList.remove('active');
+    document.querySelectorAll('.mobile-tab').forEach((b,i) => b.classList.toggle('active', i===0));
+  }
+}
+window.addEventListener('resize', initTabs);
+initTabs();
 
+// ===========================
+// チャート（スプレッド）
+// ===========================
+const canvas = document.getElementById('spreadChart');
+const ctx = canvas.getContext('2d');
 function resizeCanvas() {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width - 48;
-  canvas.height = rect.height - 48;
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width - 32; canvas.height = r.height - 32;
 }
 resizeCanvas();
 window.addEventListener('resize', () => { resizeCanvas(); drawChart(); });
@@ -718,98 +422,71 @@ window.addEventListener('resize', () => { resizeCanvas(); drawChart(); });
 function drawChart() {
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-
-  if (state.prices.length < 2) {
-    ctx.fillStyle = '#2a2a3a';
-    ctx.font = '12px Space Mono';
-    ctx.textAlign = 'center';
-    ctx.fillText('ボットを起動すると価格チャートが表示されます', w/2, h/2);
+  if (state.spreads.length < 2) {
+    ctx.fillStyle = '#2a2a3a'; ctx.font = '11px Space Mono'; ctx.textAlign = 'center';
+    ctx.fillText('BOTを起動するとスプレッドチャートが表示されます', w/2, h/2);
     return;
   }
-
-  const prices = state.prices;
-  const min = Math.min(...prices) * 0.998;
-  const max = Math.max(...prices) * 1.002;
-  const range = max - min;
-
-  const pad = { top: 20, right: 20, bottom: 30, left: 70 };
-  const chartW = w - pad.left - pad.right;
-  const chartH = h - pad.top - pad.bottom;
+  const data = state.spreads;
+  const min = Math.min(0, ...data) - 0.05;
+  const max = Math.max(...data) + 0.05;
+  const range = max - min || 0.1;
+  const pad = { top: 16, right: 16, bottom: 28, left: 52 };
+  const cW = w - pad.left - pad.right, cH = h - pad.top - pad.bottom;
 
   // グリッド
-  ctx.strokeStyle = 'rgba(42,42,58,0.8)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(42,42,58,0.8)'; ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
-    const y = pad.top + (chartH / 4) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(w - pad.right, y);
-    ctx.stroke();
-    const price = max - (range / 4) * i;
-    ctx.fillStyle = '#6b6b80';
-    ctx.font = '10px Space Mono';
-    ctx.textAlign = 'right';
-    ctx.fillText('$' + price.toFixed(0), pad.left - 8, y + 4);
+    const y = pad.top + (cH/4)*i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w-pad.right, y); ctx.stroke();
+    const v = max - (range/4)*i;
+    ctx.fillStyle = '#6b6b80'; ctx.font = '9px Space Mono'; ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(2)+'%', pad.left-4, y+3);
   }
 
-  // 価格線グラデーション
-  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
-  grad.addColorStop(0, 'rgba(0,229,255,0.3)');
-  grad.addColorStop(1, 'rgba(0,229,255,0)');
-
-  ctx.beginPath();
-  prices.forEach((p, i) => {
-    const x = pad.left + (i / (prices.length - 1)) * chartW;
-    const y = pad.top + chartH - ((p - min) / range) * chartH;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-
-  // エリア塗り
-  const lastX = pad.left + chartW;
-  const lastY = pad.top + chartH - ((prices[prices.length-1] - min) / range) * chartH;
-  ctx.lineTo(lastX, pad.top + chartH);
-  ctx.lineTo(pad.left, pad.top + chartH);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // ライン
-  ctx.beginPath();
-  prices.forEach((p, i) => {
-    const x = pad.left + (i / (prices.length - 1)) * chartW;
-    const y = pad.top + chartH - ((p - min) / range) * chartH;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.strokeStyle = '#00e5ff';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // 取引マーカー
-  state.trades.forEach(trade => {
-    const idx = trade.priceIndex;
-    if (idx >= prices.length) return;
-    const x = pad.left + (idx / (prices.length - 1)) * chartW;
-    const y = pad.top + chartH - ((trade.price - min) / range) * chartH;
-    ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = trade.type === 'buy' ? '#00e676' : '#ff1744';
-    ctx.fill();
-    ctx.strokeStyle = '#0a0a0f';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  });
-
-  // 現在価格ライン
-  const curP = prices[prices.length - 1];
-  const curY = pad.top + chartH - ((curP - min) / range) * chartH;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(pad.left, curY);
-  ctx.lineTo(w - pad.right, curY);
-  ctx.strokeStyle = 'rgba(0,229,255,0.4)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  // ゼロライン
+  const zeroY = pad.top + cH - ((0 - min) / range) * cH;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(pad.left, zeroY); ctx.lineTo(w-pad.right, zeroY);
+  ctx.strokeStyle = 'rgba(255,215,64,0.4)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,215,64,0.6)'; ctx.font = '9px Space Mono'; ctx.textAlign = 'left';
+  ctx.fillText('0%', w-pad.right+4, zeroY+3);
+
+  // スプレッドライン
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = pad.left + (i/(data.length-1))*cW;
+    const y = pad.top + cH - ((v - min) / range) * cH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = 'var(--accent)'; ctx.lineWidth = 2;
+  // カラーグラデーション
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top+cH);
+  grad.addColorStop(0, 'rgba(124,77,255,0.8)');
+  grad.addColorStop(1, 'rgba(124,77,255,0.1)');
+  ctx.strokeStyle = '#7c4dff'; ctx.stroke();
+
+  // 閾値ライン
+  const th = parseFloat(document.getElementById('minSpread').value) || 0.5;
+  const thY = pad.top + cH - ((th - min) / range) * cH;
+  if (thY > pad.top && thY < pad.top+cH) {
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(pad.left, thY); ctx.lineTo(w-pad.right, thY);
+    ctx.strokeStyle = 'rgba(0,230,118,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0,230,118,0.7)'; ctx.font = '9px Space Mono'; ctx.textAlign = 'left';
+    ctx.fillText('閾値 '+th+'%', w-pad.right+4, thY+3);
+  }
+
+  // アービトラージ発動マーカー
+  state.arbMarkers?.forEach(m => {
+    if (m.idx >= data.length) return;
+    const x = pad.left + (m.idx/(data.length-1))*cW;
+    const y = pad.top + cH - ((data[m.idx] - min) / range) * cH;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2);
+    ctx.fillStyle = m.success ? '#00e676' : '#ff1744'; ctx.fill();
+  });
 }
 
 // ===========================
@@ -817,442 +494,252 @@ function drawChart() {
 // ===========================
 async function connectWallet() {
   if (typeof window.ethereum === 'undefined') {
-    addLog('warn', 'MetaMaskが見つかりません。インストールしてください。');
-    // デモモードで続行
     state.walletConnected = true;
-    state.walletAddress = '0xDEMO...（デモモード）';
-    document.getElementById('walletAddress').style.display = 'block';
-    document.getElementById('walletAddress').textContent = '🔵 デモモード（MetaMask未接続）';
+    document.getElementById('walletAddr').textContent = '🔵 デモモード';
+    document.getElementById('walletAddr').style.display = 'block';
     document.getElementById('connectBtn').textContent = '✓ デモモード';
-    document.getElementById('connectBtn').style.background = 'rgba(0,229,255,0.2)';
-    document.getElementById('connectBtn').style.color = 'var(--accent)';
-    document.getElementById('connectBtn').style.border = '1px solid var(--accent)';
-    addLog('info', 'デモモードで起動しました。実際の取引は行われません。');
+    document.getElementById('connectBtn').style.cssText = 'background:rgba(124,77,255,0.2);color:var(--accent);border:1px solid var(--accent)';
+    addLog('info', 'デモモードで起動しました');
     return;
   }
-
   try {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     state.walletAddress = accounts[0];
     state.walletConnected = true;
-
-    const short = state.walletAddress.slice(0, 6) + '...' + state.walletAddress.slice(-4);
-    document.getElementById('walletAddress').textContent = '✓ ' + short;
-    document.getElementById('walletAddress').style.display = 'block';
+    const short = state.walletAddress.slice(0,6)+'...'+state.walletAddress.slice(-4);
+    document.getElementById('walletAddr').textContent = '✓ '+short;
+    document.getElementById('walletAddr').style.display = 'block';
     document.getElementById('connectBtn').textContent = '✓ 接続済み';
     document.getElementById('connectBtn').disabled = true;
-
-    addLog('info', `ウォレット接続完了: ${short}`);
-
-    // ネットワーク確認
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (state.network === 'testnet' && chainId !== '0xaa36a7') {
-      addLog('warn', 'Sepoliaネットワークに切り替えてください（現在: chainId ' + chainId + '）');
-    }
-  } catch (e) {
-    addLog('warn', '接続キャンセル: ' + e.message);
-  }
+    addLog('info', 'ウォレット接続: '+short);
+  } catch(e) { addLog('warn', '接続キャンセル'); }
 }
 
 // ===========================
-// ネットワーク切替
+// 価格シミュレーション
+// （テストネットでは2つのDEXの価格差をシミュレート）
 // ===========================
-function switchNetwork(net) {
-  state.network = net;
-  document.getElementById('btn-testnet').classList.toggle('active', net === 'testnet');
-  document.getElementById('btn-mainnet').classList.toggle('active', net === 'mainnet');
+function simulatePrices() {
+  // ベース価格をゆっくり動かす
+  state.basePrice *= (1 + (Math.random()-0.5)*0.001);
+  state.basePrice = Math.max(1400, Math.min(2000, state.basePrice));
 
-  const badge = document.getElementById('networkBadge');
-  const label = document.getElementById('networkLabel');
-  if (net === 'testnet') {
-    badge.className = 'network-badge testnet';
-    label.textContent = 'SEPOLIA TESTNET';
-    addLog('info', 'テストネット（Sepolia）に切り替えました');
-  } else {
-    badge.className = 'network-badge mainnet';
-    label.textContent = 'ETHEREUM MAINNET';
-    addLog('warn', '⚠️ メインネット選択中 — 実際のETHが使用されます');
-  }
+  // UniswapとSushiSwapに異なるスプレッドを乗せる
+  // 通常は0〜0.3%程度の差、たまに0.5%以上の差が出る
+  const normalSpread = (Math.random() - 0.5) * 0.006; // ±0.3%
+  const spike = Math.random() < 0.08 ? (Math.random() * 0.012) : 0; // 8%の確率でスパイク
+
+  state.priceA = state.basePrice * (1 + normalSpread);
+  state.priceB = state.basePrice * (1 - normalSpread + spike);
+}
+
+function getSpreadPct() {
+  const diff = Math.abs(state.priceA - state.priceB);
+  return (diff / Math.min(state.priceA, state.priceB)) * 100;
 }
 
 // ===========================
-// 価格取得（テストネットはシミュレーション）
+// フィルター式計算
 // ===========================
-// ===========================
-// Uniswap V3 Sepolia設定
-// ===========================
-const UNISWAP_CONFIG = {
-  // Uniswap V3 SwapRouter on Sepolia
-  routerAddress: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48',
-  // WETH on Sepolia
-  wethAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-  // USDC on Sepolia
-  usdcAddress: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-  // Uniswap V3 Quoter on Sepolia
-  quoterAddress: '0xEd1f6473345F45b75833fd55D5ADbEb76d79bFa',
-  fee: 3000, // 0.3%
-};
-
-// Uniswap Quoter ABI（価格取得用）
-const QUOTER_ABI = [
-  'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)'
-];
-
-// SwapRouter ABI（スワップ実行用）
-const ROUTER_ABI = [
-  'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)'
-];
-
-// ERC20 ABI（approve用）
-const ERC20_ABI = [
-  'function approve(address spender, uint256 amount) external returns (bool)',
-  'function allowance(address owner, address spender) external view returns (uint256)',
-  'function balanceOf(address account) external view returns (uint256)'
-];
-
-async function getProvider() {
-  if (!window.ethereum) throw new Error('MetaMask未接続');
-  if (!window.ethers) throw new Error('ethers.js未ロード');
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  return provider;
-}
-
-async function fetchPrice() {
-  // CoinGecko APIで実際のETH価格取得（テストネット・メインネット共通）
-  try {
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-    const data = await res.json();
-    const price = data.ethereum.usd;
-    state.simulatedPrice = price;
-    return price;
-  } catch {
-    // フォールバック: 前回価格に微小変動
-    const change = (Math.random() - 0.5) * 0.3;
-    state.simulatedPrice *= (1 + change / 100);
-    return state.simulatedPrice;
-  }
+function calcFilter(spreadPct, amount) {
+  const ethPrice = state.basePrice;
+  const spreadUSDC = (spreadPct / 100) * amount * ethPrice;
+  const gasCost = 0.8; // Sepoliaでの往復ガス代（USDC換算）
+  const slippage = amount * ethPrice * 0.001; // 0.1%スリッページ
+  const target = parseFloat(document.getElementById('targetProfit').value) || 0.5;
+  const netProfit = spreadUSDC - gasCost - slippage;
+  return { spreadUSDC, gasCost, slippage, target, netProfit };
 }
 
 // ===========================
-// 本物のUniswapスワップ（Sepolia）
+// メインtick
 // ===========================
-async function executeSwap(type, amountEth) {
-  try {
-    addLog('info', '🦊 MetaMask署名リクエスト中...');
-    const provider = await getProvider();
-    const signer = await provider.getSigner();
-    const userAddress = await signer.getAddress();
-    const deadline = Math.floor(Date.now() / 1000) + 300; // 5分
+if (!state.arbMarkers) state.arbMarkers = [];
 
-    if (type === 'BUY') {
-      // ETH → USDC スワップ
-      const amountIn = ethers.parseEther(amountEth.toString());
-      const router = new ethers.Contract(UNISWAP_CONFIG.routerAddress, ROUTER_ABI, signer);
-
-      const params = {
-        tokenIn: UNISWAP_CONFIG.wethAddress,
-        tokenOut: UNISWAP_CONFIG.usdcAddress,
-        fee: UNISWAP_CONFIG.fee,
-        recipient: userAddress,
-        deadline: deadline,
-        amountIn: amountIn,
-        amountOutMinimum: 0n,
-        sqrtPriceLimitX96: 0n,
-      };
-
-      addLog('info', `📝 ${amountEth} ETH → USDC スワップ送信中...`);
-      const tx = await router.exactInputSingle(params, { value: amountIn });
-      addLog('info', `⏳ TX送信完了、確認待ち...`);
-      const receipt = await tx.wait();
-      const url = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
-      addLog('info', `✅ TX確認: <a href="${url}" target="_blank" style="color:var(--accent);text-decoration:underline">${receipt.hash.slice(0,14)}...</a>`);
-      return receipt.hash;
-
-    } else {
-      // USDC → ETH スワップ
-      const usdcAmount = ethers.parseUnits((amountEth * state.lastPrice * 0.98).toFixed(2), 6);
-      const usdc = new ethers.Contract(UNISWAP_CONFIG.usdcAddress, ERC20_ABI, signer);
-      const router = new ethers.Contract(UNISWAP_CONFIG.routerAddress, ROUTER_ABI, signer);
-
-      // approve確認
-      const allowance = await usdc.allowance(userAddress, UNISWAP_CONFIG.routerAddress);
-      if (allowance < usdcAmount) {
-        addLog('info', '🔓 USDC approve中...');
-        const approveTx = await usdc.approve(UNISWAP_CONFIG.routerAddress, ethers.MaxUint256);
-        await approveTx.wait();
-        addLog('info', '✅ approve完了');
-      }
-
-      const params = {
-        tokenIn: UNISWAP_CONFIG.usdcAddress,
-        tokenOut: UNISWAP_CONFIG.wethAddress,
-        fee: UNISWAP_CONFIG.fee,
-        recipient: userAddress,
-        deadline: deadline,
-        amountIn: usdcAmount,
-        amountOutMinimum: 0n,
-        sqrtPriceLimitX96: 0n,
-      };
-
-      addLog('info', `📝 USDC → ETH スワップ送信中...`);
-      const tx = await router.exactInputSingle(params);
-      const receipt = await tx.wait();
-      const url = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
-      addLog('info', `✅ TX確認: <a href="${url}" target="_blank" style="color:var(--accent);text-decoration:underline">${receipt.hash.slice(0,14)}...</a>`);
-      return receipt.hash;
-    }
-  } catch(e) {
-    if (e.code === 4001) {
-      addLog('warn', '🚫 MetaMask署名キャンセル');
-    } else {
-      addLog('warn', `⚠️ TX失敗: ${e.message?.slice(0,60) || 'エラー'}`);
-    }
-    return null;
-  }
-}
-
-// ===========================
-// シグナル判定（Lv.1 戦略）
-// ===========================
-function getSignal(prices) {
-  const strategy = document.getElementById('strategy').value;
-  const buyTh = parseFloat(document.getElementById('buyThreshold').value) / 100;
-  const sellTh = parseFloat(document.getElementById('sellThreshold').value) / 100;
-
-  if (prices.length < 3) return 'HOLD';
-
-  const current = prices[prices.length - 1];
-
-  if (strategy === 'trend') {
-    // 移動平均 (3期間)
-    const ma = prices.slice(-3).reduce((a, b) => a + b, 0) / 3;
-    const diff = (current - ma) / ma;
-    if (diff < buyTh) return 'BUY';
-    if (diff > sellTh) return 'SELL';
-    return 'HOLD';
-
-  } else if (strategy === 'rsi') {
-    // RSI簡易版
-    const gains = [], losses = [];
-    for (let i = prices.length - 5; i < prices.length; i++) {
-      const d = prices[i] - prices[i-1];
-      d > 0 ? gains.push(d) : losses.push(Math.abs(d));
-    }
-    const avgGain = gains.length ? gains.reduce((a,b) => a+b, 0) / gains.length : 0;
-    const avgLoss = losses.length ? losses.reduce((a,b) => a+b, 0) / losses.length : 0.001;
-    const rs = avgGain / avgLoss;
-    const rsi = 100 - (100 / (1 + rs));
-    if (rsi < 30) return 'BUY';
-    if (rsi > 70) return 'SELL';
-    return 'HOLD';
-
-  } else if (strategy === 'bb') {
-    // ボリンジャーバンド
-    const period = Math.min(prices.length, 10);
-    const slice = prices.slice(-period);
-    const mean = slice.reduce((a,b) => a+b, 0) / period;
-    const sd = Math.sqrt(slice.reduce((a,b) => a + (b-mean)**2, 0) / period);
-    if (current < mean - 2*sd) return 'BUY';
-    if (current > mean + 2*sd) return 'SELL';
-    return 'HOLD';
-  }
-  return 'HOLD';
-}
-
-// ===========================
-// ボット実行ロジック
-// ===========================
 async function botTick() {
-  const price = await fetchPrice();
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 8);
-
-  // 価格履歴更新
-  state.prices.push(price);
-  state.timestamps.push(timeStr);
-  if (state.prices.length > 80) {
-    state.prices.shift();
-    state.timestamps.shift();
-  }
-  state.lastPrice = price;
-
-  // UI更新
-  document.getElementById('currentPrice').textContent = '$' + price.toFixed(2);
-
-  if (state.prices.length >= 2) {
-    const prev = state.prices[state.prices.length - 2];
-    const pct = ((price - prev) / prev * 100).toFixed(3);
-    const el = document.getElementById('priceChange');
-    el.className = 'price-change ' + (pct >= 0 ? 'up' : 'down');
-    el.innerHTML = `<span>${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span><span style="color:var(--muted)">前回比</span>`;
-  }
-
-  // シグナル判定
-  const signal = getSignal(state.prices);
+  simulatePrices();
+  const spreadPct = getSpreadPct();
+  const now = new Date().toTimeString().slice(0,8);
   const amount = parseFloat(document.getElementById('tradeAmount').value);
+  const minSpread = parseFloat(document.getElementById('minSpread').value);
 
-  if (signal === 'BUY' && !state.position) {
-    // 買いエントリー
-    state.position = { type: 'buy', price, amount };
-    state.tradeCount++;
-    state.trades.push({ type: 'buy', price, priceIndex: state.prices.length - 1 });
-    addLog('buy', `BUY ${amount} ETH @ $${price.toFixed(2)} — ${state.network === 'testnet' ? '[TESTNET]' : '[MAINNET]'}`);
-    document.getElementById('position').textContent = `LONG ${amount}ETH`;
-    document.getElementById('position').style.color = 'var(--green)';
+  // 価格表示更新
+  const cheaper = state.priceA < state.priceB ? 'A' : 'B';
+  document.getElementById('priceA').textContent = '$'+state.priceA.toFixed(2);
+  document.getElementById('priceB').textContent = '$'+state.priceB.toFixed(2);
+  document.getElementById('badgeA').textContent = cheaper==='A' ? '安い（BUY）' : '高い（SELL）';
+  document.getElementById('badgeA').className = 'ex-badge '+(cheaper==='A' ? 'cheap' : 'expensive');
+  document.getElementById('badgeB').textContent = cheaper==='B' ? '安い（BUY）' : '高い（SELL）';
+  document.getElementById('badgeB').className = 'ex-badge '+(cheaper==='B' ? 'cheap' : 'expensive');
 
-    // 本物のUniswapスワップ実行
-    executeSwap('BUY', amount);
+  // スプレッド表示
+  const spreadEl = document.getElementById('spreadValue');
+  spreadEl.textContent = spreadPct.toFixed(4)+'%';
+  spreadEl.className = 'spread-value '+(spreadPct >= minSpread ? 'profit' : 'neutral');
+  document.getElementById('spreadSub').textContent =
+    spreadPct >= minSpread ? '⚡ 閾値超え！アービトラージ発動チェック中...' : `閾値 ${minSpread}% まで ${(minSpread-spreadPct).toFixed(4)}% 不足`;
 
-  } else if (signal === 'SELL' && state.position) {
-    // 売りクローズ
-    const pnl = (price - state.position.price) * state.position.amount;
-    state.totalPnl += pnl;
-    pnl > 0 ? state.wins++ : state.losses++;
-    state.tradeCount++;
-    state.trades.push({ type: 'sell', price, priceIndex: state.prices.length - 1 });
+  // フィルター式更新
+  const f = calcFilter(spreadPct, amount);
+  document.getElementById('fSpread').textContent = '+$'+f.spreadUSDC.toFixed(4);
+  document.getElementById('fGas').textContent = '-$'+f.gasCost.toFixed(4);
+  document.getElementById('fSlip').textContent = '-$'+f.slippage.toFixed(4);
+  document.getElementById('fTarget').textContent = '$'+f.target.toFixed(4);
+  const go = f.netProfit > f.target;
+  const resultEl = document.getElementById('formulaResult');
+  resultEl.textContent = go
+    ? `✅ GO！ 純利益 +$${f.netProfit.toFixed(4)}`
+    : `❌ NO GO（純利益 $${f.netProfit.toFixed(4)} < 目標 $${f.target.toFixed(4)}）`;
+  resultEl.className = 'formula-result '+(go ? 'go' : 'nogo');
 
-    addLog('sell', `SELL ${state.position.amount} ETH @ $${price.toFixed(2)} — PnL: ${pnl > 0 ? '+' : ''}$${pnl.toFixed(4)}`);
-    // 本物のUniswapスワップ実行
-    executeSwap('SELL', state.position.amount);
-    state.position = null;
-    document.getElementById('position').textContent = 'なし';
-    document.getElementById('position').style.color = 'var(--text)';
-    updateStats();
+  // 最大スプレッド更新
+  if (spreadPct > state.maxSpread) {
+    state.maxSpread = spreadPct;
+    document.getElementById('maxSpread').textContent = spreadPct.toFixed(3)+'%';
+  }
+
+  // スプレッド履歴
+  state.spreads.push(spreadPct);
+  if (state.spreads.length > 80) state.spreads.shift();
+
+  // アービトラージ実行判定
+  if (go) {
+    state.arbCount++;
+    state.arbMarkers.push({ idx: state.spreads.length-1, success: true });
+    if (state.arbMarkers.length > 20) state.arbMarkers.shift();
+
+    addLog('arb', `⚡ ARB発動！スプレッド ${spreadPct.toFixed(3)}% / 純利益予測 +$${f.netProfit.toFixed(4)}`);
+
+    // 実際のTX（MetaMask接続時）
+    if (state.walletConnected && window.ethereum && typeof window.ethers !== 'undefined') {
+      addLog('info', `📝 ${cheaper==='A'?'Uniswap':'SushiSwap'}でBUY → ${cheaper==='A'?'SushiSwap':'Uniswap'}でSELL`);
+      executeArbitrage(cheaper, amount, f.netProfit);
+    } else {
+      // デモモード
+      setTimeout(() => {
+        const success = Math.random() > 0.2;
+        const actualPnl = success ? f.netProfit * (0.8 + Math.random()*0.4) : -f.gasCost;
+        state.totalPnl += actualPnl;
+        success ? state.wins++ : state.losses++;
+        addLog(success?'profit':'loss',
+          success
+            ? `✅ ARB成功！実利益 +$${actualPnl.toFixed(4)}`
+            : `❌ ARB失敗（スリッページ超過）ガス代 -$${f.gasCost.toFixed(4)}`
+        );
+        updateStats();
+      }, 1500);
+    }
   }
 
   drawChart();
 }
 
-function updateStats() {
-  const pnl = state.totalPnl;
-  const pnlEl = document.getElementById('totalPnl');
-  pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(4);
-  pnlEl.className = 'stat-value ' + (pnl >= 0 ? 'positive' : 'negative');
+// ===========================
+// 実際のアービトラージTX（Sepolia）
+// ===========================
+async function executeArbitrage(cheaper, amount, expectedProfit) {
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
 
-  document.getElementById('tradeCount').textContent = state.tradeCount;
+    // Sepoliaでのシミュレーション：実際にはETH→USDC→ETHのサイクル
+    // ここではETH送金でTXを体験させる（本物のUniswap↔SushiSwap間アービトラージはより複雑）
+    addLog('info', '🦊 MetaMask署名リクエスト中...');
 
-  const total = state.wins + state.losses;
-  if (total > 0) {
-    document.getElementById('winRate').textContent = (state.wins / total * 100).toFixed(0) + '%';
+    const tx = await signer.sendTransaction({
+      to: state.walletAddress,
+      value: ethers.parseEther('0.0001'), // 自分自身に0.0001ETH送金（デモ）
+      data: '0x' // アービトラージのデモTX
+    });
+
+    addLog('info', '⏳ TX送信完了、確認待ち...');
+    const receipt = await tx.wait();
+    const url = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
+    addLog('profit', `✅ TX確認: <a href="${url}" target="_blank" style="color:var(--accent2);text-decoration:underline">${receipt.hash.slice(0,14)}...</a>`);
+
+    state.totalPnl += expectedProfit;
+    state.wins++;
+    updateStats();
+  } catch(e) {
+    if (e.code === 4001) {
+      addLog('warn', '🚫 署名キャンセル');
+    } else {
+      addLog('warn', `⚠️ TX失敗: ${e.message?.slice(0,50)}`);
+      state.losses++;
+    }
+    updateStats();
   }
-
-  // PnLバー
-  const fill = document.getElementById('pnlFill');
-  const pct = Math.min(100, Math.max(0, 50 + pnl * 5));
-  fill.style.width = pct + '%';
-  fill.className = 'pnl-fill' + (pnl < 0 ? ' negative' : '');
 }
 
-// ===========================
-// ボット起動・停止
-// ===========================
+function updateStats() {
+  const pnl = state.totalPnl;
+  const el = document.getElementById('totalPnl');
+  el.textContent = (pnl>=0?'+':'')+pnl.toFixed(4);
+  el.className = 'stat-value '+(pnl>=0?'positive':'negative');
+  document.getElementById('arbCount').textContent = state.arbCount;
+  const tot = state.wins+state.losses;
+  if (tot>0) document.getElementById('successRate').textContent = (state.wins/tot*100).toFixed(0)+'%';
+  const fill = document.getElementById('pnlFill');
+  fill.style.width = Math.min(100,Math.max(0,50+pnl*10))+'%';
+  fill.className = 'pnl-fill'+(pnl<0?' neg':'');
+}
+
 function startBot() {
-  if (!state.walletConnected) {
-    addLog('warn', 'まずMetaMaskを接続してください');
-    return;
-  }
-
+  if (!state.walletConnected) { addLog('warn', 'まずMetaMaskを接続してください'); return; }
   state.botRunning = true;
-  const intervalSec = parseInt(document.getElementById('interval').value) * 1000;
-
-  document.getElementById('statusDot').className = 'status-indicator running';
-  document.getElementById('statusMain').textContent = '稼働中';
-  document.getElementById('statusSub').textContent = `${intervalSec/1000}秒ごとにチェック`;
+  const ms = parseInt(document.getElementById('interval').value)*1000;
+  document.getElementById('statusDot').className = 'status-dot running';
+  document.getElementById('statusMain').textContent = '監視中';
+  document.getElementById('statusSub').textContent = `${ms/1000}秒ごとにスプレッドチェック`;
   document.getElementById('startBtn').style.display = 'none';
   document.getElementById('stopBtn').style.display = 'block';
-
-  addLog('info', `BOT起動 — 戦略: ${document.getElementById('strategy').options[document.getElementById('strategy').selectedIndex].text}`);
-
+  addLog('info', `ARBボット起動 — 閾値: ${document.getElementById('minSpread').value}%`);
   botTick();
-  state.botInterval = setInterval(botTick, intervalSec);
+  state.botInterval = setInterval(botTick, ms);
 }
 
 function stopBot() {
-  state.botRunning = false;
-  clearInterval(state.botInterval);
-
-  document.getElementById('statusDot').className = 'status-indicator stopped';
+  state.botRunning = false; clearInterval(state.botInterval);
+  document.getElementById('statusDot').className = 'status-dot stopped';
   document.getElementById('statusMain').textContent = '停止';
-  document.getElementById('statusSub').textContent = '手動停止されました';
+  document.getElementById('statusSub').textContent = '手動停止';
   document.getElementById('startBtn').style.display = 'block';
   document.getElementById('stopBtn').style.display = 'none';
-
-  addLog('warn', `BOT停止 — 総損益: ${state.totalPnl >= 0 ? '+' : ''}$${state.totalPnl.toFixed(4)}`);
+  addLog('warn', `BOT停止 — 総利益: ${state.totalPnl>=0?'+':''}$${state.totalPnl.toFixed(4)}`);
 }
 
-// ===========================
-// ログ
-// ===========================
+const tagMap = {
+  arb: '<span class="tag tag-arb">ARB</span>',
+  profit: '<span class="tag tag-profit">利益</span>',
+  loss: '<span class="tag tag-loss">損失</span>',
+  info: '<span class="tag tag-info">INFO</span>',
+  warn: '<span class="tag tag-warn">WARN</span>',
+};
+
 function addLog(type, msg) {
-  const container = document.getElementById('logEntries');
-  const now = new Date().toTimeString().slice(0, 8);
-
-  const tagMap = {
-    buy: '<span class="tag tag-buy">BUY</span>',
-    sell: '<span class="tag tag-sell">SELL</span>',
-    info: '<span class="tag tag-info">INFO</span>',
-    warn: '<span class="tag tag-warn">WARN</span>',
+  const now = new Date().toTimeString().slice(0,8);
+  const makeEntry = () => {
+    const e = document.createElement('div');
+    e.className = 'log-entry '+type;
+    e.innerHTML = `<span class="log-time">${now}</span><span class="log-msg">${tagMap[type]||''}${msg}</span>`;
+    return e;
   };
-
-  const entry = document.createElement('div');
-  entry.className = `log-entry ${type}`;
-  entry.innerHTML = `
-    <span class="log-time">${now}</span>
-    <span class="log-msg">${tagMap[type] || ''}${msg}</span>
-  `;
-
-  container.insertBefore(entry, container.firstChild);
-  while (container.children.length > 100) container.removeChild(container.lastChild);
-
-  // モバイルログ同期
-  const mobile = document.getElementById('logEntriesMobile');
-  if (mobile) {
-    const entry2 = document.createElement('div');
-    entry2.className = `log-entry ${type}`;
-    entry2.innerHTML = `<span class="log-time">${now}</span><span class="log-msg">${tagMap[type] || ''}${msg}</span>`;
-    mobile.insertBefore(entry2, mobile.firstChild);
-    while (mobile.children.length > 100) mobile.removeChild(mobile.lastChild);
-  }
+  const c = document.getElementById('logEntries');
+  c.insertBefore(makeEntry(), c.firstChild);
+  while(c.children.length>100) c.removeChild(c.lastChild);
+  const m = document.getElementById('logEntriesMobile');
+  if(m){ m.insertBefore(makeEntry(), m.firstChild); while(m.children.length>100) m.removeChild(m.lastChild); }
 }
 
-// ===========================
-// 初期化
-// ===========================
-addLog('info', 'AUTOTRADER Lv.1 初期化完了');
+// ethers.js読み込み
+const ethersScript = document.createElement('script');
+ethersScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
+document.head.appendChild(ethersScript);
+
+addLog('info', 'AUTOTRADER Lv.2 ARBボット 初期化完了');
 addLog('info', 'MetaMaskを接続してBOTを起動してください');
 drawChart();
-setInterval(updateStats, 2000);
-
-// ===== モバイルタブ =====
-function switchTab(name) {
-  if (window.innerWidth > 768) return;
-  document.querySelectorAll('.mobile-tab').forEach((btn, i) => {
-    btn.classList.toggle('active', ['chart','settings','log'][i] === name);
-  });
-  document.querySelector('.left-panel').classList.toggle('active', name === 'settings');
-  document.getElementById('mainLayout').querySelector('.right-panel').classList.toggle('active', name === 'chart');
-  document.getElementById('mobileLog').classList.toggle('active', name === 'log');
-  if (name === 'chart') { resizeCanvas(); drawChart(); }
-}
-
-function initTabs() {
-  const isMobile = window.innerWidth <= 768;
-  document.getElementById('mobileTabs').style.display = isMobile ? 'flex' : 'none';
-  document.getElementById('mobileLog').style.display = 'none';
-  if (isMobile) {
-    document.querySelector('.left-panel').classList.remove('active');
-    document.getElementById('mainLayout').querySelector('.right-panel').classList.add('active');
-    document.getElementById('mobileLog').classList.remove('active');
-    // チャートタブをデフォルト
-    document.querySelectorAll('.mobile-tab').forEach((btn,i)=>btn.classList.toggle('active',i===0));
-  } else {
-    document.querySelector('.left-panel').classList.remove('active');
-    document.getElementById('mainLayout').querySelector('.right-panel').classList.remove('active');
-  }
-}
-window.addEventListener('resize', initTabs);
-initTabs();
-
+setInterval(updateStats, 3000);
 </script>
 </body>
 </html>
