@@ -529,13 +529,14 @@
   .mobile-tabs { display: none; }
   .mobile-log { display: none; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 </head>
 <body>
 
 <header class="header">
   <div class="logo">
     AUTOTRADER
-    <span>// Lv.1 TREND BOT</span>
+    <span>// Lv.1 TREND BOT <span style="color:var(--yellow);font-size:11px">v2.0</span></span>
   </div>
   <div class="network-badge testnet" id="networkBadge">
     <div class="dot"></div>
@@ -911,15 +912,7 @@ const ERC20_ABI = [
 
 async function getProvider() {
   if (!window.ethereum) throw new Error('MetaMask未接続');
-  // ethers.jsをCDNから動的ロード
-  if (!window.ethers) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
-      s.onload = resolve; s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
+  if (!window.ethers) throw new Error('ethers.js未ロード');
   const provider = new ethers.BrowserProvider(window.ethereum);
   return provider;
 }
