@@ -880,7 +880,7 @@ function switchNetwork(net) {
 async function fetchPrice() {
   if (state.network === 'testnet') {
     // テストネット: リアルな価格変動シミュレーション
-    const change = (Math.random() - 0.48) * 0.8; // わずかに上昇バイアス
+    const change = (Math.random() - 0.5) * 3.0; // 変動幅を大きく
     state.simulatedPrice *= (1 + change / 100);
     state.simulatedPrice = Math.max(2000, Math.min(6000, state.simulatedPrice));
     return state.simulatedPrice;
@@ -907,14 +907,14 @@ function getSignal(prices) {
   const buyTh = parseFloat(document.getElementById('buyThreshold').value) / 100;
   const sellTh = parseFloat(document.getElementById('sellThreshold').value) / 100;
 
-  if (prices.length < 5) return 'HOLD';
+  if (prices.length < 3) return 'HOLD';
 
   const current = prices[prices.length - 1];
 
   if (strategy === 'trend') {
-    // 移動平均 (5期間)
-    const ma5 = prices.slice(-5).reduce((a, b) => a + b, 0) / 5;
-    const diff = (current - ma5) / ma5;
+    // 移動平均 (3期間)
+    const ma = prices.slice(-3).reduce((a, b) => a + b, 0) / 3;
+    const diff = (current - ma) / ma;
     if (diff < buyTh) return 'BUY';
     if (diff > sellTh) return 'SELL';
     return 'HOLD';
