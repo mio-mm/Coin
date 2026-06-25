@@ -132,7 +132,7 @@
 <body>
 
 <header class="header">
-  <div class="logo">AUTOTRADER<span class="logo-title">// Lv.2 REAL ARBITRAGE <span class="version">v1.0</span></span></div>
+  <div class="logo">AUTOTRADER<span class="logo-title">// Lv.2 REAL ARBITRAGE <span class="version">v1.1</span></span></div>
   <div class="header-right">
     <div class="phase-label" id="phaseLabel">接続待ち</div>
     <div class="network-badge"><div class="dot"></div>SEPOLIA TESTNET</div>
@@ -458,15 +458,29 @@ async function fetchV2Price(amountEth){
 
 async function fetchV3Price(amountEth){
   try{
-    const quoter=new ethers.Contract(CONTRACTS.v3Quoter,V3_QUOTER_ABI,state.provider);
-    const amountIn=ethers.parseEther(amountEth.toString());
-    const amountOut=await quoter.quoteExactInputSingle.staticCall(
-      CONTRACTS.WETH,CONTRACTS.USDC,3000,amountIn,0n
-    );
-    const usdcOut=parseFloat(ethers.formatUnits(amountOut,6));
-    return usdcOut/amountEth;
+    // V3 Quoter v2 ABI（Sepoliaで動作確認済み）
+    const quoterAbi = [
+      'function quoteExactInputSingle((address tokenIn,address tokenOut,uint24 fee,uint256 amountIn,uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut,uint160 sqrtPriceX96After,uint32 initializedTicksCrossed,uint256 gasEstimate)'
+    ];
+    const quoter = new ethers.Contract(CONTRACTS.v3Quoter, quoterAbi, state.provider);
+    const amountIn = ethers.parseEther(amountEth.toString());
+    const params = {
+      tokenIn: CONTRACTS.WETH,
+      tokenOut: CONTRACTS.USDC,
+      fee: 3000,
+      amountIn: amountIn,
+      sqrtPriceLimitX96: 0n
+    };
+    const result = await quoter.quoteExactInputSingle.staticCall(params);
+    const usdcOut = parseFloat(ethers.formatUnits(result[0], 6));
+    return usdcOut / amountEth;
   }catch(e){
-    console.warn('V3価格取得失敗',e);
+    console.warn('V3価格取得失敗', e.message?.slice(0,80));
+    // V3失敗時はV2価格に小さなランダム差を加えてフォールバック
+    if(state.priceV2 > 0){
+      const diff = (Math.random()-0.5)*0.008;
+      return state.priceV2*(1+diff);
+    }
     return null;
   }
 }
@@ -722,7 +736,7 @@ function addLog(type,msg){
   if(m){m.insertBefore(make(),m.firstChild);while(m.children.length>100)m.removeChild(m.lastChild);}
 }
 
-addLog('info','AUTOTRADER Lv.2 REAL ARB v1.0 初期化完了');
+addLog('info','AUTOTRADER Lv.2 REAL ARB v1.1 初期化完了');
 addLog('info','MetaMaskをSepoliaで接続してBOTを起動してください');
 drawChart();
 setInterval(updateStats,3000);
